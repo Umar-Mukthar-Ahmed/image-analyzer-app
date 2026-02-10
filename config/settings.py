@@ -1,3 +1,79 @@
+# """
+# Configuration management for Image Analyzer App
+# """
+# import os
+# from pathlib import Path
+# from typing import List
+# from dotenv import load_dotenv
+#
+# # Load environment variables
+# load_dotenv()
+#
+#
+# class Settings:
+#     """Centralized configuration settings"""
+#
+#     # Project paths
+#     PROJECT_ROOT = Path(__file__).parent.parent
+#     LOGS_DIR = PROJECT_ROOT / "logs"
+#     EXAMPLES_DIR = PROJECT_ROOT / "examples" / "sample_images"
+#
+#     # Azure Computer Vision API Configuration
+#     AZURE_VISION_ENDPOINT: str = os.getenv("AZURE_VISION_ENDPOINT", "")
+#     AZURE_VISION_KEY: str = os.getenv("AZURE_VISION_KEY", "")
+#
+#     # Application Configuration
+#     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+#     MAX_IMAGE_SIZE_MB: int = int(os.getenv("MAX_IMAGE_SIZE_MB", "4"))
+#     MAX_IMAGE_SIZE_BYTES: int = MAX_IMAGE_SIZE_MB * 1024 * 1024
+#
+#     SUPPORTED_FORMATS: List[str] = os.getenv(
+#         "SUPPORTED_FORMATS",
+#         "jpg,jpeg,png,bmp,gif"
+#     ).split(",")
+#
+#     # Confidence Thresholds
+#     HIGH_CONFIDENCE_THRESHOLD: float = float(
+#         os.getenv("HIGH_CONFIDENCE_THRESHOLD", "0.8")
+#     )
+#     MEDIUM_CONFIDENCE_THRESHOLD: float = float(
+#         os.getenv("MEDIUM_CONFIDENCE_THRESHOLD", "0.5")
+#     )
+#     LOW_CONFIDENCE_THRESHOLD: float = float(
+#         os.getenv("LOW_CONFIDENCE_THRESHOLD", "0.3")
+#     )
+#
+#     # API Parameters
+#     LANGUAGE: str = "en"
+#     MAX_DESCRIPTIONS: int = 3
+#     MAX_TAGS: int = 10
+#
+#     @classmethod
+#     def validate(cls) -> None:
+#         """Validate that all required settings are present"""
+#         required_settings = [
+#             ("AZURE_VISION_ENDPOINT", cls.AZURE_VISION_ENDPOINT),
+#             ("AZURE_VISION_KEY", cls.AZURE_VISION_KEY),
+#         ]
+#
+#         missing = [name for name, value in required_settings if not value]
+#
+#         if missing:
+#             raise ValueError(
+#                 f"Missing required environment variables: {', '.join(missing)}\n"
+#                 f"Please copy .env.example to .env and fill in your credentials."
+#             )
+#
+#     @classmethod
+#     def get_log_file_path(cls) -> Path:
+#         """Get the log file path"""
+#         cls.LOGS_DIR.mkdir(exist_ok=True)
+#         return cls.LOGS_DIR / "image_analyzer.log"
+#
+#
+# # Create a singleton instance
+# settings = Settings()
+
 """
 Configuration management for Image Analyzer App
 """
@@ -6,8 +82,20 @@ from pathlib import Path
 from typing import List
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load .env for local development
 load_dotenv()
+
+
+def _load_streamlit_secrets():
+    """Safely load Streamlit secrets if running in Streamlit"""
+    try:
+        import streamlit as st
+        return st.secrets
+    except Exception:
+        return {}
+
+
+_secrets = _load_streamlit_secrets()
 
 
 class Settings:
@@ -18,58 +106,85 @@ class Settings:
     LOGS_DIR = PROJECT_ROOT / "logs"
     EXAMPLES_DIR = PROJECT_ROOT / "examples" / "sample_images"
 
-    # Azure Computer Vision API Configuration
-    AZURE_VISION_ENDPOINT: str = os.getenv("AZURE_VISION_ENDPOINT", "")
-    AZURE_VISION_KEY: str = os.getenv("AZURE_VISION_KEY", "")
+    # -------------------------------
+    # Azure Computer Vision API
+    # -------------------------------
+    AZURE_VISION_ENDPOINT: str = (
+        _secrets.get("azure_vision", {}).get("endpoint")
+        or os.getenv("AZURE_VISION_ENDPOINT", "")
+    )
 
+    AZURE_VISION_KEY: str = (
+        _secrets.get("azure_vision", {}).get("key")
+        or os.getenv("AZURE_VISION_KEY", "")
+    )
+
+    # -------------------------------
     # Application Configuration
-    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
-    MAX_IMAGE_SIZE_MB: int = int(os.getenv("MAX_IMAGE_SIZE_MB", "4"))
+    # -------------------------------
+    LOG_LEVEL: str = (
+        _secrets.get("application", {}).get("log_level")
+        or os.getenv("LOG_LEVEL", "INFO")
+    )
+
+    MAX_IMAGE_SIZE_MB: int = int(
+        _secrets.get("application", {}).get("max_image_size_mb")
+        or os.getenv("MAX_IMAGE_SIZE_MB", "4")
+    )
+
     MAX_IMAGE_SIZE_BYTES: int = MAX_IMAGE_SIZE_MB * 1024 * 1024
 
-    SUPPORTED_FORMATS: List[str] = os.getenv(
-        "SUPPORTED_FORMATS",
-        "jpg,jpeg,png,bmp,gif"
-    ).split(",")
+    SUPPORTED_FORMATS: List[str] = (
+        _secrets.get("application", {}).get("supported_formats")
+        or os.getenv("SUPPORTED_FORMATS", "jpg,jpeg,png,bmp,gif").split(",")
+    )
 
+    # -------------------------------
     # Confidence Thresholds
+    # -------------------------------
     HIGH_CONFIDENCE_THRESHOLD: float = float(
-        os.getenv("HIGH_CONFIDENCE_THRESHOLD", "0.8")
-    )
-    MEDIUM_CONFIDENCE_THRESHOLD: float = float(
-        os.getenv("MEDIUM_CONFIDENCE_THRESHOLD", "0.5")
-    )
-    LOW_CONFIDENCE_THRESHOLD: float = float(
-        os.getenv("LOW_CONFIDENCE_THRESHOLD", "0.3")
+        _secrets.get("confidence_thresholds", {}).get("high")
+        or os.getenv("HIGH_CONFIDENCE_THRESHOLD", "0.8")
     )
 
+    MEDIUM_CONFIDENCE_THRESHOLD: float = float(
+        _secrets.get("confidence_thresholds", {}).get("medium")
+        or os.getenv("MEDIUM_CONFIDENCE_THRESHOLD", "0.5")
+    )
+
+    LOW_CONFIDENCE_THRESHOLD: float = float(
+        _secrets.get("confidence_thresholds", {}).get("low")
+        or os.getenv("LOW_CONFIDENCE_THRESHOLD", "0.3")
+    )
+
+    # -------------------------------
     # API Parameters
+    # -------------------------------
     LANGUAGE: str = "en"
     MAX_DESCRIPTIONS: int = 3
     MAX_TAGS: int = 10
 
     @classmethod
     def validate(cls) -> None:
-        """Validate that all required settings are present"""
-        required_settings = [
-            ("AZURE_VISION_ENDPOINT", cls.AZURE_VISION_ENDPOINT),
-            ("AZURE_VISION_KEY", cls.AZURE_VISION_KEY),
-        ]
+        """Validate required settings"""
+        missing = []
 
-        missing = [name for name, value in required_settings if not value]
+        if not cls.AZURE_VISION_ENDPOINT:
+            missing.append("AZURE_VISION_ENDPOINT")
+        if not cls.AZURE_VISION_KEY:
+            missing.append("AZURE_VISION_KEY")
 
         if missing:
-            raise ValueError(
-                f"Missing required environment variables: {', '.join(missing)}\n"
-                f"Please copy .env.example to .env and fill in your credentials."
+            raise RuntimeError(
+                f"Missing required credentials: {', '.join(missing)}\n"
+                "Set them in .env (local) or secrets.toml (Streamlit)."
             )
 
     @classmethod
     def get_log_file_path(cls) -> Path:
-        """Get the log file path"""
         cls.LOGS_DIR.mkdir(exist_ok=True)
         return cls.LOGS_DIR / "image_analyzer.log"
 
 
-# Create a singleton instance
+# Singleton instance
 settings = Settings()
